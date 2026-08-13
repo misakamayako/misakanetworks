@@ -112,7 +112,7 @@ chown 10001:10001 data/images
    | Variable | `ACR_REGISTRY` | 例如 `registry.cn-hangzhou.aliyuncs.com` |
    | Variable | `ACR_NAMESPACE` | 你的 ACR 命名空间 |
    | Variable | `ACR_REGION` | 例如 `cn-hangzhou` |
-   | Secret | `ECS_HOST` | ECS 公网 IP（不配则只推镜像、不自动部署） |
+   | Secret | `ECS_HOST` | ECS 公网 IP（不配则只推镜像、自动跳过部署步骤） |
    | Secret | `ECS_USER` / `ECS_SSH_KEY` | SSH 用户与私钥 |
    | Secret | `ECS_PORT` | SSH 端口，默认 22 |
    | Variable | `ECS_APP_DIR` | ECS 上仓库目录，如 `~/misakanetworks-core` |

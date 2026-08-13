@@ -44,20 +44,21 @@ jobs:
 
   deploy-ecs:
     needs: build-and-push
-    if: ${{ secrets.ECS_HOST != '' }}
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
 
       - name: Deploy on ECS
-        uses: appleboy/ssh-action@v1
+        if: ${{ env.ECS_HOST != '' }}
         env:
+          ECS_HOST: ${{ secrets.ECS_HOST }}
           ACR_USERNAME: ${{ secrets.ACR_USERNAME }}
           ACR_PASSWORD: ${{ secrets.ACR_PASSWORD }}
           # 部署固定到具体 commit，latest 只留给手动使用
-          IMAGE: ${{ env.IMAGE_BASE }}:${{ inputs.deploy_version || github.sha }}
+          IMAGE: ${{ vars.ACR_REGISTRY }}/${{ vars.ACR_NAMESPACE }}/misakanetworks-core:${{ inputs.deploy_version || github.sha }}
+        uses: appleboy/ssh-action@v1
         with:
-          host: ${{ secrets.ECS_HOST }}
+          host: ${{ env.ECS_HOST }}
           username: ${{ secrets.ECS_USER }}
           key: ${{ secrets.ECS_SSH_KEY }}
           port: ${{ secrets.ECS_PORT || '22' }}
@@ -65,6 +66,7 @@ jobs:
           script: |
             cd ${{ vars.ECS_APP_DIR || '~/misakanetworks-core' }}
             git pull --ff-only
-            echo "$ACR_PASSWORD" | docker login --username "$ACR_USERNAME" "${{ vars.ACR_REGISTRY }}"
+            echo "$ACR_PASSWORD" | docker login --username "$ACR_USERNAME" --password-stdin "${{ vars.ACR_REGISTRY }}"
             IMAGE="$IMAGE" docker compose -f docker-compose.prod.yml pull
             IMAGE="$IMAGE" docker compose -f docker-compose.prod.yml up -d
+            docker compose -f docker-compose.prod.yml exec -T nginx nginx -s reload || true

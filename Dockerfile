@@ -10,6 +10,8 @@ WORKDIR /app
 COPY . .
 
 # 首次构建会下载 Gradle 发行版与依赖，耗时较长；--mount=type=cache 复用构建缓存加速
+# Windows 上提交的 gradlew 可能没有执行位，先显式加上
+RUN chmod +x gradlew
 RUN --mount=type=cache,target=/root/.gradle ./gradlew --no-daemon nativeCompile
 
 # ---- 运行阶段：只包含原生二进制与最小运行库 ----

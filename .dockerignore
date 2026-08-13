@@ -5,5 +5,7 @@ data
 logs
 .idea
 *.iml
+.env
+.env.local
 nginx/certs
 nginx/webroot
