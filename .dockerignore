@@ -1,0 +1,9 @@
+.git
+.gradle
+build
+data
+logs
+.idea
+*.iml
+nginx/certs
+nginx/webroot

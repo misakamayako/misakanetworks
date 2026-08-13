@@ -1,0 +1,43 @@
+CREATE TABLE IF NOT EXISTS `users` (
+  id BIGINT AUTO_INCREMENT PRIMARY KEY,
+  email VARCHAR(255) NOT NULL,
+  password_hash VARCHAR(255) NOT NULL,
+  totp_secret VARCHAR(64) NOT NULL,
+  totp_bound BOOLEAN NOT NULL DEFAULT FALSE,
+  created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  UNIQUE KEY uk_users_email (email)
+);
+
+CREATE TABLE IF NOT EXISTS `articles` (
+  id BIGINT AUTO_INCREMENT PRIMARY KEY,
+  slug VARCHAR(200) NOT NULL,
+  title VARCHAR(255) NOT NULL,
+  summary TEXT,
+  created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  UNIQUE KEY uk_articles_slug (slug)
+);
+
+CREATE TABLE IF NOT EXISTS `article_tags` (
+  id BIGINT AUTO_INCREMENT PRIMARY KEY,
+  article_id BIGINT NOT NULL,
+  tag VARCHAR(64) NOT NULL,
+  UNIQUE KEY uk_article_tags (article_id, tag),
+  CONSTRAINT fk_article_tags_article FOREIGN KEY (article_id) REFERENCES `articles`(id) ON DELETE CASCADE
+);
+
+CREATE TABLE IF NOT EXISTS `images` (
+  id BIGINT AUTO_INCREMENT PRIMARY KEY,
+  user_id BIGINT NOT NULL,
+  file_name VARCHAR(100) NOT NULL,
+  content_type VARCHAR(100) NOT NULL,
+  size_bytes BIGINT NOT NULL,
+  submission_status VARCHAR(32) NOT NULL DEFAULT 'NOT_SUBMITTED',
+  sd_tags TEXT,
+  description TEXT,
+  created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  UNIQUE KEY uk_images_user_file (user_id, file_name),
+  CONSTRAINT fk_images_user FOREIGN KEY (user_id) REFERENCES `users`(id) ON DELETE CASCADE
+);

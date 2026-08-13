@@ -1,0 +1,69 @@
+services:
+  db:
+    image: mysql:8.0
+    restart: unless-stopped
+    environment:
+      MYSQL_DATABASE: ${MYSQL_DATABASE:-misakanetworks}
+      MYSQL_USER: ${MYSQL_USER:-misaka}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD:?请设置 MYSQL_PASSWORD}
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:?请设置 MYSQL_ROOT_PASSWORD}
+    volumes:
+      - db-data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD-SHELL", "mysqladmin ping -h localhost -uroot -p$$MYSQL_ROOT_PASSWORD --silent"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
+    networks:
+      - backend
+
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      DB_URL: r2dbc:mysql://db:3306/${MYSQL_DATABASE:-misakanetworks}
+      DB_USERNAME: ${MYSQL_USER:-misaka}
+      DB_PASSWORD: ${MYSQL_PASSWORD:?}
+      JWT_SECRET: ${JWT_SECRET:?请设置 JWT_SECRET}
+      IMAGE_ENCRYPTION_KEY: ${IMAGE_ENCRYPTION_KEY:?请设置 IMAGE_ENCRYPTION_KEY}
+      IMAGE_STORAGE_TYPE: ${IMAGE_STORAGE_TYPE:-local}
+      IMAGE_STORAGE_DIR: /data/images
+      OSS_ENDPOINT: ${OSS_ENDPOINT:-}
+      OSS_ACCESS_KEY_ID: ${OSS_ACCESS_KEY_ID:-}
+      OSS_ACCESS_KEY_SECRET: ${OSS_ACCESS_KEY_SECRET:-}
+      OSS_BUCKET: ${OSS_BUCKET:-}
+      SWAGGER_ENABLED: ${SWAGGER_ENABLED:-false}
+    volumes:
+      # 本地存储模式：图片直接存主机目录（便于备份/迁移）。
+      # 首次启动前需在主机执行：mkdir -p data/images && chown 10001:10001 data/images
+      - ./data/images:/data/images
+    networks:
+      - backend
+
+  nginx:
+    image: nginx:1.27-alpine
+    restart: unless-stopped
+    depends_on:
+      - app
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./nginx/certs:/etc/nginx/certs:ro
+      - ./nginx/webroot:/var/www/certbot:ro
+    networks:
+      - backend
+
+volumes:
+  db-data:
+
+networks:
+  backend:
+    driver: bridge

@@ -1,0 +1,70 @@
+name: Build & Deploy
+
+on:
+  push:
+    branches: [main, master]
+  workflow_dispatch:
+    inputs:
+      deploy_version:
+        description: 要部署到 ECS 的镜像标签（留空 = 当前 commit）
+        required: false
+
+env:
+  # 例如 registry.cn-hangzhou.aliyuncs.com / 命名空间
+  IMAGE_BASE: ${{ vars.ACR_REGISTRY }}/${{ vars.ACR_NAMESPACE }}/misakanetworks-core
+  PLATFORM: linux/amd64
+
+jobs:
+  build-and-push:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Login to Aliyun ACR
+        uses: aliyun/acr-login@v1
+        with:
+          region-id: ${{ vars.ACR_REGION }}
+          username: ${{ secrets.ACR_USERNAME }}
+          password: ${{ secrets.ACR_PASSWORD }}
+
+      - name: Build and push native image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          push: true
+          platforms: ${{ env.PLATFORM }}
+          tags: |
+            ${{ env.IMAGE_BASE }}:${{ github.sha }}
+            ${{ env.IMAGE_BASE }}:latest
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+  deploy-ecs:
+    needs: build-and-push
+    if: ${{ secrets.ECS_HOST != '' }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Deploy on ECS
+        uses: appleboy/ssh-action@v1
+        env:
+          ACR_USERNAME: ${{ secrets.ACR_USERNAME }}
+          ACR_PASSWORD: ${{ secrets.ACR_PASSWORD }}
+          # 部署固定到具体 commit，latest 只留给手动使用
+          IMAGE: ${{ env.IMAGE_BASE }}:${{ inputs.deploy_version || github.sha }}
+        with:
+          host: ${{ secrets.ECS_HOST }}
+          username: ${{ secrets.ECS_USER }}
+          key: ${{ secrets.ECS_SSH_KEY }}
+          port: ${{ secrets.ECS_PORT || '22' }}
+          envs: ACR_USERNAME,ACR_PASSWORD,IMAGE
+          script: |
+            cd ${{ vars.ECS_APP_DIR || '~/misakanetworks-core' }}
+            git pull --ff-only
+            echo "$ACR_PASSWORD" | docker login --username "$ACR_USERNAME" "${{ vars.ACR_REGISTRY }}"
+            IMAGE="$IMAGE" docker compose -f docker-compose.prod.yml pull
+            IMAGE="$IMAGE" docker compose -f docker-compose.prod.yml up -d
