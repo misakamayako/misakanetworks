@@ -13,6 +13,8 @@ env:
   # 例如 registry.cn-hangzhou.aliyuncs.com / 命名空间
   IMAGE_BASE: ${{ vars.ACR_REGISTRY }}/${{ vars.ACR_NAMESPACE }}/misakanetworks-core
   PLATFORM: linux/amd64
+  # 临时允许第三方 action 使用已被弃用的 Node 20 运行时（GitHub 强制后需移除）
+  ACTIONS_ALLOW_USE_UNSECURE_NODE_VERSION: 'true'
 
 jobs:
   build-and-push:
@@ -22,13 +24,12 @@ jobs:
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
+        with:
+          # docker-container 驱动才支持 gha 缓存导出（docker 默认驱动不支持）
+          driver: docker-container
 
       - name: Login to Aliyun ACR
-        uses: aliyun/acr-login@v1
-        with:
-          region-id: ${{ vars.ACR_REGION }}
-          username: ${{ secrets.ACR_USERNAME }}
-          password: ${{ secrets.ACR_PASSWORD }}
+        run: echo "${{ secrets.ACR_PASSWORD }}" | docker login --username "${{ secrets.ACR_USERNAME }}" --password-stdin "${{ vars.ACR_REGISTRY }}"
 
       - name: Build and push native image
         uses: docker/build-push-action@v6
