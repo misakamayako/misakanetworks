@@ -17,8 +17,10 @@ RUN --mount=type=cache,target=/root/.gradle ./gradlew --no-daemon nativeCompile
 # ---- 运行阶段：只包含原生二进制与最小运行库 ----
 FROM debian:bookworm-slim
 
-RUN apt-get update \
-    && apt-get install -y --no-install-recommends curl ca-certificates \
+# Debian 2025 轮换了 bookworm 签名密钥；旧基础镜像缺新公钥会导致 apt-get update 报
+# NO_PUBKEY。首次 update 允许未签名（HTTPS 传输本身安全），装上新版 debian-archive-keyring 后再正常安装。
+RUN apt-get update -o Acquire::AllowInsecureRepositories=true \
+    && apt-get install -y --no-install-recommends --allow-unauthenticated debian-archive-keyring curl ca-certificates \
     && rm -rf /var/lib/apt/lists/*
 
 RUN useradd --system --uid 10001 app \
