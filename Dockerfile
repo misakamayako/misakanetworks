@@ -1,21 +1,39 @@
 # ============================================================================
 # misakanetworks-core 镜像（GraalVM 原生编译，多阶段构建）
 #
-# 针对踩过的坑一次性处理：
-#   1. 构建阶段用官方 native-image-community 镜像（自带 native-image，无需 gu install）；
-#   2. 其基础为 Oracle Linux 9，预装的 libxcrypt-static 锁定了旧版 gcc，会报
-#      "cannot install both gcc-*"，先 microdnf update 整体升级再装工具链即可解决；
-#   3. 运行阶段 debian:bookworm-slim 因 Debian 2025 轮换签名密钥报 NO_PUBKEY，
-#      首次 update 允许未签名（HTTPS 传输本身安全），装上新版 debian-archive-keyring。
+# 为什么这么写：
+#   官方 ghcr.io/graalvm/*:21 镜像是 Oracle Linux 9 且已随 GraalVM CE JDK 21
+#   EOL 而停止更新，基础系统停留在 el9_3 时代：老版 microdnf 无法处理新版仓库
+#   的多版本 gcc/glibc 冲突（"cannot install both gcc-*/glibc-*"），反复失败。
+#   因此构建阶段改用 Debian（apt 稳定可靠）+ 从 GitHub Releases 下载 GraalVM
+#   JDK 21 社区版并安装 native-image 组件。
+#   Debian 2025 轮换签名密钥导致 NO_PUBKEY：首次 update 允许未签名（HTTPS 传输
+#   本身安全），装上新版 debian-archive-keyring 后再正常安装。
 # ============================================================================
 
-# ---- 构建阶段：GraalVM 原生编译 ----
-FROM ghcr.io/graalvm/native-image-community:21 AS build
+# ---- 构建阶段：Debian + GraalVM JDK 21 + native-image ----
+FROM debian:bookworm-slim AS build
 
-# 升级全部包（同步 libxcrypt-static 到与最新 gcc 配套的版本），再装 C 工具链
-RUN microdnf update -y \
-    && microdnf install -y gcc glibc-devel zlib-devel \
-    && microdnf clean all
+# C 工具链（gcc/zlib/glibc 头文件）用于 native-image 链接原生二进制
+RUN apt-get update -o Acquire::AllowInsecureRepositories=true \
+    && apt-get install -y --no-install-recommends --allow-unauthenticated \
+         debian-archive-keyring curl ca-certificates gcc zlib1g-dev libc6-dev \
+    && rm -rf /var/lib/apt/lists/*
+
+# GraalVM 社区版 JDK 21（下载约 350MB；版本可调，见
+# https://github.com/graalvm/graalvm-ce-builds/releases）
+ARG GRAALVM_CE_VERSION=21.0.2
+RUN curl -fsSL -o /tmp/graalvm.tar.gz \
+      "https://github.com/graalvm/graalvm-ce-builds/releases/download/jdk-${GRAALVM_CE_VERSION}/graalvm-community-jdk-${GRAALVM_CE_VERSION}_linux-x64_bin.tar.gz" \
+    && mkdir -p /opt/graalvm \
+    && tar -xzf /tmp/graalvm.tar.gz -C /opt/graalvm --strip-components=1 \
+    && rm -f /tmp/graalvm.tar.gz
+
+ENV JAVA_HOME=/opt/graalvm \
+    PATH="/opt/graalvm/bin:${PATH}"
+
+# 社区版 JDK 21 的 native-image 需要额外安装
+RUN gu install native-image
 
 WORKDIR /app
 COPY . .
