@@ -69,6 +69,12 @@ graalvmNative {
         named("main") {
             buildArgs.add("--no-fallback")
             buildArgs.add("-H:+ReportExceptionStackTraces")
+            // ACR 个人版构建机内存有限，native-image 编译期被 SIGKILL（exit 137）：
+            // 降低优化级别、限制编译 JVM 堆、减少并行编译线程，压缩内存峰值
+            buildArgs.add("-O0")
+            buildArgs.add("-J-Xmx3g")
+            buildArgs.add("-J-XX:MaxMetaspaceSize=768m")
+            buildArgs.add("-H:NumberOfThreads=2")
         }
     }
 }
