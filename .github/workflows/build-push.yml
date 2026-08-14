@@ -36,6 +36,27 @@ jobs:
           test -n "$USERNAME"  || { echo "::error::缺少 GitHub Secret: ACR_USERNAME"; exit 1; }
           test -n "$PASSWORD"  || { echo "::error::缺少 GitHub Secret: ACR_PASSWORD"; exit 1; }
 
+      - name: Diagnose ACR credentials (不打印密码内容)
+        env:
+          PASSWORD: ${{ secrets.ACR_PASSWORD }}
+          USERNAME: ${{ secrets.ACR_USERNAME }}
+        run: |
+          echo "password_length=${#PASSWORD}"
+          echo "username_length=${#USERNAME}"
+          last_char="${PASSWORD: -1}"
+          first_char="${PASSWORD:0:1}"
+          if [ "$last_char" = $'\n' ]; then
+            echo "::warning::ACR_PASSWORD 末尾有换行符 (newline)"
+          else
+            echo "OK: 密码末尾没有换行符"
+          fi
+          if [ "$last_char" = $'\r' ]; then
+            echo "::warning::ACR_PASSWORD 末尾有回车符 (CR)"
+          fi
+          if [ "$last_char" = ' ' ] || [ "$first_char" = ' ' ]; then
+            echo "::warning::ACR_PASSWORD 首尾有空格"
+          fi
+
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
         with:
