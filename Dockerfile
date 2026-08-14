@@ -1,27 +1,35 @@
-# ---- 构建阶段：在 Linux 容器内编译 GraalVM 原生可执行文件 ----
-FROM ghcr.io/graalvm/graalvm-community:21 AS build
+# ============================================================================
+# misakanetworks-core 镜像（GraalVM 原生编译，多阶段构建）
+#
+# 针对踩过的坑一次性处理：
+#   1. 构建阶段用官方 native-image-community 镜像（自带 native-image，无需 gu install）；
+#   2. 其基础为 Oracle Linux 9，预装的 libxcrypt-static 锁定了旧版 gcc，会报
+#      "cannot install both gcc-*"，先 microdnf update 整体升级再装工具链即可解决；
+#   3. 运行阶段 debian:bookworm-slim 因 Debian 2025 轮换签名密钥报 NO_PUBKEY，
+#      首次 update 允许未签名（HTTPS 传输本身安全），装上新版 debian-archive-keyring。
+# ============================================================================
 
-# 原生编译需要 C 工具链；某些镜像需要额外安装 native-image 组件
-# OL9 基础镜像存在 gcc 多版本与预装 libxcrypt-static 的依赖冲突：
-# 刷新元数据 + --allowerasing（允许替换冲突包）解决 "cannot install both gcc-*" 报错
-RUN microdnf makecache \
-    && microdnf install -y --allowerasing gcc glibc-devel zlib-devel \
+# ---- 构建阶段：GraalVM 原生编译 ----
+FROM ghcr.io/graalvm/native-image-community:21 AS build
+
+# 升级全部包（同步 libxcrypt-static 到与最新 gcc 配套的版本），再装 C 工具链
+RUN microdnf update -y \
+    && microdnf install -y gcc glibc-devel zlib-devel \
     && microdnf clean all
-RUN gu install native-image || true
 
 WORKDIR /app
 COPY . .
 
-# 首次构建会下载 Gradle 发行版与依赖，耗时较长；--mount=type=cache 复用构建缓存加速
 # Windows 上提交的 gradlew 可能没有执行位，先显式加上
 RUN chmod +x gradlew
-RUN --mount=type=cache,target=/root/.gradle ./gradlew --no-daemon nativeCompile
+
+# 首次构建会下载 Gradle 发行版与依赖，耗时较长
+# （不使用 --mount=type=cache，保证 ACR 构建器兼容性）
+RUN ./gradlew --no-daemon nativeCompile
 
 # ---- 运行阶段：只包含原生二进制与最小运行库 ----
 FROM debian:bookworm-slim
 
-# Debian 2025 轮换了 bookworm 签名密钥；旧基础镜像缺新公钥会导致 apt-get update 报
-# NO_PUBKEY。首次 update 允许未签名（HTTPS 传输本身安全），装上新版 debian-archive-keyring 后再正常安装。
 RUN apt-get update -o Acquire::AllowInsecureRepositories=true \
     && apt-get install -y --no-install-recommends --allow-unauthenticated debian-archive-keyring curl ca-certificates \
     && rm -rf /var/lib/apt/lists/*
