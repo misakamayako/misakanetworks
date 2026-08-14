@@ -4,12 +4,13 @@
 #
 # 用法:      ./deploy.sh [镜像tag]     # 默认 latest
 # 首次使用:  先登录 ACR 一次（凭证会保存在 ~/.docker/config.json，之后无需再登录）:
-#             docker login registry.cn-hangzhou.aliyuncs.com
+#             docker login registry.cn-shanghai.aliyuncs.com
 # 前置条件:  本目录是 misakanetworks 仓库的 clone，且 docker compose 可用
+# 注意:      REGISTRY 必须与 ACR 构建所在的地域一致（构建在哪个实例，就从哪个地域拉）
 # ============================================================================
 set -euo pipefail
 
-REGISTRY="registry.cn-hangzhou.aliyuncs.com"
+REGISTRY="registry.cn-shanghai.aliyuncs.com"
 NAMESPACE="misaka-private"
 REPO="misakanetworks-core"
 TAG="${1:-latest}"

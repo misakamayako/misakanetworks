@@ -2,7 +2,10 @@
 FROM ghcr.io/graalvm/graalvm-community:21 AS build
 
 # 原生编译需要 C 工具链；某些镜像需要额外安装 native-image 组件
-RUN microdnf install -y gcc glibc-devel zlib-devel \
+# OL9 基础镜像存在 gcc 多版本与预装 libxcrypt-static 的依赖冲突：
+# 刷新元数据 + --allowerasing（允许替换冲突包）解决 "cannot install both gcc-*" 报错
+RUN microdnf makecache \
+    && microdnf install -y --allowerasing gcc glibc-devel zlib-devel \
     && microdnf clean all
 RUN gu install native-image || true
 
