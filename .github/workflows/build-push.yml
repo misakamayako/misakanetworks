@@ -43,7 +43,14 @@ jobs:
           driver: docker-container
 
       - name: Login to Aliyun ACR
-        run: echo "${{ secrets.ACR_PASSWORD }}" | docker login --username "${{ secrets.ACR_USERNAME }}" --password-stdin "${{ vars.ACR_REGISTRY }}"
+        env:
+          ACR_USERNAME: ${{ secrets.ACR_USERNAME }}
+          ACR_PASSWORD: ${{ secrets.ACR_PASSWORD }}
+          ACR_REGISTRY: ${{ vars.ACR_REGISTRY }}
+        run: |
+          printf '%s' "$ACR_PASSWORD" > /tmp/acr_pw
+          docker login --username "$ACR_USERNAME" --password-stdin "$ACR_REGISTRY" < /tmp/acr_pw
+          rm -f /tmp/acr_pw
 
       - name: Build and push native image
         uses: docker/build-push-action@v6
@@ -82,7 +89,9 @@ jobs:
           script: |
             cd ${{ vars.ECS_APP_DIR || '~/misakanetworks-core' }}
             git pull --ff-only
-            echo "$ACR_PASSWORD" | docker login --username "$ACR_USERNAME" --password-stdin "${{ vars.ACR_REGISTRY }}"
+            printf '%s' "$ACR_PASSWORD" > /tmp/acr_pw
+            docker login --username "$ACR_USERNAME" --password-stdin "${{ vars.ACR_REGISTRY }}" < /tmp/acr_pw
+            rm -f /tmp/acr_pw
             IMAGE="$IMAGE" docker compose -f docker-compose.prod.yml pull
             IMAGE="$IMAGE" docker compose -f docker-compose.prod.yml up -d
             docker compose -f docker-compose.prod.yml exec -T nginx nginx -s reload || true
