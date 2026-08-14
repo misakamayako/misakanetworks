@@ -5,8 +5,8 @@
 #   官方 ghcr.io/graalvm/*:21 镜像是 Oracle Linux 9 且已随 GraalVM CE JDK 21
 #   EOL 而停止更新，基础系统停留在 el9_3 时代：老版 microdnf 无法处理新版仓库
 #   的多版本 gcc/glibc 冲突（"cannot install both gcc-*/glibc-*"），反复失败。
-#   因此构建阶段改用 Debian（apt 稳定可靠）+ 从 GitHub Releases 下载 GraalVM
-#   JDK 21 社区版并安装 native-image 组件。
+#   因此构建阶段改用 Debian（apt 稳定可靠）+ 从 GitHub Releases 下载
+#   GraalVM JDK 21 社区版（JDK 21 起 native-image 已内置，无需 gu 安装）。
 #   Debian 2025 轮换签名密钥导致 NO_PUBKEY：首次 update 允许未签名（HTTPS 传输
 #   本身安全），装上新版 debian-archive-keyring 后再正常安装。
 # ============================================================================
@@ -32,9 +32,7 @@ RUN curl -fsSL -o /tmp/graalvm.tar.gz \
 ENV JAVA_HOME=/opt/graalvm \
     PATH="/opt/graalvm/bin:${PATH}"
 
-# 社区版 JDK 21 的 native-image 需要额外安装
-RUN gu install native-image
-
+# 社区版 JDK 21 自带 native-image（GraalVM 21 起 gu 已移除，无需也不可安装）
 WORKDIR /app
 COPY . .
 

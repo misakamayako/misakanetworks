@@ -3,7 +3,10 @@ plugins {
     kotlin("plugin.spring") version "2.3.21"
     id("org.springframework.boot") version "4.1.0"
     id("io.spring.dependency-management") version "1.1.7"
-    id("org.graalvm.buildtools.native") version "1.1.1"
+    // 从 1.1.1 升级以兼容 Gradle 9.x / Spring Boot 4。
+    // 若插件解析失败（Could not find ... 1.1.8），去
+    // https://github.com/graalvm/native-build-tools/releases 取最新 1.1.x 版本号替换。
+    id("org.graalvm.buildtools.native") version "1.1.8"
 }
 
 group = "per.misaka"
