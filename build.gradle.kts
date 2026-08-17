@@ -78,3 +78,8 @@ graalvmNative {
         }
     }
 }
+
+// JVM 版镜像用固定 jar 名，Dockerfile 不依赖版本号
+tasks.bootJar {
+    archiveFileName.set("app.jar")
+}
