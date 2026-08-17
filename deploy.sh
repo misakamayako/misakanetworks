@@ -27,6 +27,13 @@ fi
 cd "$(dirname "$0")"
 git pull --ff-only
 
+# HTTPS 证书预检：证书被 .gitignore 排除（nginx/certs/*.pem），git pull 不会带过来。
+# 缺证书时 nginx 会因无法加载证书直接启动失败（emerg），这里先给个明确告警。
+if [ ! -f nginx/certs/fullchain.pem ] || [ ! -f nginx/certs/privkey.pem ]; then
+  echo "!! 警告: 缺少 nginx/certs/fullchain.pem 或 privkey.pem，nginx 将无法启动"
+  echo "   请参考 nginx/certs/README.md 准备证书，然后: docker compose -f docker-compose.prod.yml restart nginx"
+fi
+
 echo "==> 拉取镜像: $IMAGE"
 IMAGE="$IMAGE" docker compose -f docker-compose.prod.yml pull
 

@@ -29,9 +29,15 @@ RUN apt-get update -o Acquire::AllowInsecureRepositories=true \
     && rm -rf /var/lib/apt/lists/*
 
 RUN useradd --system --uid 10001 app \
-    && mkdir -p /data/images \
-    && chown app:app /data/images
+    && mkdir -p /data/images /app/logs \
+    && chown app:app /data/images /app/logs
 USER app
+
+# 运行阶段没有继承构建阶段的 WORKDIR，容器默认工作目录是 /，非 root 用户
+# 在 / 下建不了 logs/ 目录，logback 的 FILE appender 会打不开文件导致启动失败。
+# 这里显式设 /app 为工作目录，配合上面 mkdir+chown 的 /app/logs，相对路径
+# logs/misakanetworks-core.log 就能正常落盘。
+WORKDIR /app
 
 COPY --from=build /app/build/libs/app.jar /app/app.jar
 
