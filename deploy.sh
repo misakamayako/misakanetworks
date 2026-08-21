@@ -41,7 +41,8 @@ echo "==> 启动/更新服务"
 IMAGE="$IMAGE" docker compose -f docker-compose.prod.yml up -d
 
 # 证书续期等场景下热重载 nginx；失败不影响本次部署
-docker compose -f docker-compose.prod.yml exec -T nginx nginx -s reload || true
+# 注意：compose 任何子命令都会插值整个文件，必须带 IMAGE= 前缀，否则报 required variable
+IMAGE="$IMAGE" docker compose -f docker-compose.prod.yml exec -T nginx nginx -s reload || true
 
 echo "==> 部署完成: $IMAGE"
-docker compose -f docker-compose.prod.yml ps
+IMAGE="$IMAGE" docker compose -f docker-compose.prod.yml ps
