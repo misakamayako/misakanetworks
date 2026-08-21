@@ -58,6 +58,10 @@ services:
       - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
       - ./nginx/certs:/etc/nginx/certs:ro
       - ./nginx/webroot:/var/www/certbot:ro
+      # 本地开发：把前端构建产物目录挂进来（如 ../misakanetworks-web/dist）
+      - ./frontend-dist:/usr/share/nginx/html:ro
+      # well-known 文件（security.txt 等）
+      - ./nginx/wellknown:/var/www/wellknown:ro
     networks:
       - backend
 
