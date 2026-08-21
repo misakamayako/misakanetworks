@@ -40,9 +40,11 @@ IMAGE="$IMAGE" docker compose -f docker-compose.prod.yml pull
 echo "==> 启动/更新服务"
 IMAGE="$IMAGE" docker compose -f docker-compose.prod.yml up -d
 
-# 证书续期等场景下热重载 nginx；失败不影响本次部署
+# nginx.conf 是单文件 bind mount：git pull / 编辑器保存会用新 inode 替换文件，
+# 容器挂载仍指向旧 inode（reload / restart 都无效），必须 --force-recreate
+# 强制重建 nginx 重新解析挂载，新配置与证书才会真正生效。
 # 注意：compose 任何子命令都会插值整个文件，必须带 IMAGE= 前缀，否则报 required variable
-IMAGE="$IMAGE" docker compose -f docker-compose.prod.yml exec -T nginx nginx -s reload || true
+IMAGE="$IMAGE" docker compose -f docker-compose.prod.yml up -d --force-recreate --no-deps nginx
 
 echo "==> 部署完成: $IMAGE"
 IMAGE="$IMAGE" docker compose -f docker-compose.prod.yml ps
